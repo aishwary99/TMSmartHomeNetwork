@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Index page</title>
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Dosis:wght@300&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/font-awesome.css" />
+    <script src="js/jquery.js"></script>
+    <link rel="stylesheet" href="css/index.css" />
+    <link rel="stylesheet" href="css/bootstrap.min.css" />
+    <link rel="stylesheet" href="css/bootstrap-theme.min.css" />
+    <script src="js/bootstrap.min.js"></script>
+
+    <script>
+      const fetchListOfBoardsAPI = () => {
+        var promise = new Promise((resolve, reject) => {
+          //CC,LS
+          fetch("/CC,LS")
+            .then((response) => {
+              return response.json();
+            })
+            .then((responseJSON) => {
+              if (responseJSON.length == 0) {
+                reject("Boards not found , kindly register a board...");
+              } else {
+                resolve(responseJSON);
+              }
+            });
+        });
+        return promise;
+      };
+      const registerBoardAPI = (request) => {
+        var promise = new Promise((resolve, reject) => {
+          setTimeout(() => {
+            fetch("/" + request)
+              .then((response) => {
+                return response.json();
+              })
+              .then((responseJSON) => {
+                if (responseJSON.success == "true") resolve();
+                else reject(responseJSON.exception);
+              });
+          }, 2000);
+        });
+        return promise;
+      };
+      const toggleUnitAPI = (request) => {
+        var promise = new Promise((resolve, reject) => {
+          setTimeout(() => {
+            fetch("/" + request)
+              .then((response) => {
+                return response.json();
+              })
+              .then((responseJSON) => {
+                if (responseJSON.success == "true") {
+                  resolve();
+                } else {
+                  reject("There is some error, try again later...");
+                }
+              });
+          }, 3000);
+        });
+        return promise;
+      };
+      const toggleUnit = (id) => {
+        var status = id + "-status";
+        var toggler = $("#" + id);
+        toggler.html("Toggling...");
+        toggler.attr("disabled", true);
+        var boardId, electronicUnitId;
+        var indexOfSeparator = id.indexOf("-");
+        boardId = id.substring(indexOfSeparator + 1);
+        electronicUnitId = id.substring(0, indexOfSeparator);
+        //call api for unit on/off....
+        //CC,CMD,boardId,electronicUnitId
+        var request = "CC,CMD," + boardId + "," + electronicUnitId;
+        toggleUnitAPI(request).then(
+          (response) => {
+            //on resolve
+          },
+          (exception) => {
+            //on reject
+            alert(exception);
+          }
+        );
+        setTimeout(() => {
+          var statusSection = $("#" + status);
+          var statusText = statusSection.html();
+          indexOfSeparator = statusText.indexOf(":");
+          statusText = statusText.substring(indexOfSeparator + 1).trim();
+          if (statusText.startsWith("ON")) {
+            statusText = "OFF";
+            statusSection.removeClass("onStatus");
+            statusSection.addClass("offStatus");
+          } else if (statusText.startsWith("OFF")) {
+            statusText = "ON";
+            statusSection.removeClass("offStatus");
+            statusSection.addClass("onStatus");
+          }
+          statusSection.html("Status : " + statusText);
+          toggler.html("Toggle");
+          toggler.attr("disabled", false);
+        }, 2000);
+      };
+      const validateRegisterDetails = () => {
+        $("#registerBoard").addClass("disabled");
+        var boardId = $("#boardId");
+        var electronicUnitsCount = $("#electronicUnitsCount").val();
+        var isError = false;
+        if (boardId.val().length == 0) {
+          isError = true;
+          boardId.attr("style", "border:1px solid red;");
+        }
+        var request = "BR,";
+        request += boardId.val() + ",";
+        for (var i = 1; i <= electronicUnitsCount; i++) {
+          var electronicUnitId = $("#unit" + i);
+          if (electronicUnitId.val().length == 0) {
+            electronicUnitId.attr("style", "border:1px solid red;");
+            isError = true;
+          } else {
+            request += electronicUnitId.val();
+            if (i < electronicUnitsCount) request += ",";
+          }
+        }
+        if (isError) {
+          return;
+        }
+        $("#registerLoader").removeAttr("style");
+        registerBoardAPI(request).then(
+          () => {
+            //on resolve
+            var successBox = $("#successBox");
+            successBox.html("");
+            successBox.append(
+              "<h5><i class='fa fa-check-square-o' aria-hidden='true'></i>&nbsp;Board Registered Successfully...</h5>"
+            );
+            successBox.removeClass("hidden");
+            setTimeout(() => {
+              successBox.addClass("hidden");
+            }, 4000);
+            resetForm();
+          },
+          (exception) => {
+            //on reject
+            var errorBox = $("#errorBox");
+            errorBox.html("");
+            errorBox.append(
+              "<h5><i class='fa fa-times' aria-hidden='true'></i>&nbsp;" +
+                exception +
+                "</h5>"
+            );
+            errorBox.removeClass("hidden");
+            setTimeout(() => {
+              errorBox.addClass("hidden");
+            }, 4000);
+            resetForm();
+          }
+        );
+      };
+      const resetForm = () => {
+        $("#registerLoader").attr("style", "display:none");
+        $("#registerBoard").removeClass("disabled");
+        $("#boardId").val("");
+        $("#boardId").removeAttr("style");
+        var electronicUnitsCountList = $("#electronicUnitsCount");
+        electronicUnitsCountList.attr("disabled", false);
+        electronicUnitsCountList.val("Choose");
+        for (var i = 1; i <= 4; i++) {
+          $("#unitDiv" + i).addClass("hidden");
+          $("#unit" + i).val("");
+          $("#unit" + i).removeAttr("style");
+        }
+      };
+      const populateBoards = () => {
+        //$(".boardsLoaderSection").removeClass("hidden");
+        setTimeout(() => {
+          fetchListOfBoardsAPI().then(
+            (listOfBoards) => {
+              //on resolve
+              $("#boardSection").html("");
+              for (var i = 0; i < listOfBoards.length; i++) {
+                var board = JSON.parse(listOfBoards[i]);
+                var boardId = board.boardId;
+                var centerAlignment = $("<center>");
+                var boardTitleSection = $("<div>");
+                boardTitleSection.addClass("row myFont");
+                boardTitleSection.append(
+                  `<h3>&nbsp;<i class='fa fa-clipboard'></i>&nbsp;&nbsp; Board : ${boardId}</h3>`
+                );
+                centerAlignment.append(boardTitleSection);
+                $("#boardSection").append(centerAlignment);
+                var electronicUnitSection = $("<div>");
+                electronicUnitSection.addClass("electronicUnitSection");
+                var listOfElectronicUnits = JSON.parse(board.electronicUnits);
+                for (var j = 0; j < listOfElectronicUnits.length; j++) {
+                  var electronicUnit = JSON.parse(listOfElectronicUnits[j]);
+                  var electronicUnitId = electronicUnit.electronicUnitId;
+                  var state = electronicUnit.state;
+                  var status, statusText;
+                  var electronicUnitImage;
+                  if (electronicUnitId.toLowerCase() == "fan")
+                    electronicUnitImage = "img/ceilingfan.png";
+                  if (electronicUnitId.toLowerCase() == "cooler")
+                    electronicUnitImage = "img/cooler.png";
+                  if (electronicUnitId.toLowerCase() == "table fan")
+                    electronicUnitImage = "img/tablefan.png";
+                  if (
+                    electronicUnitId.toLowerCase() == "tubelight" ||
+                    electronicUnitId.toLowerCase() == "tube light"
+                  )
+                    electronicUnitImage = "img/tubelight.png";
+                  if (electronicUnitId.toLowerCase() == "bulb")
+                    electronicUnitImage = "img/bulb.png";
+                  if (electronicUnitId.toLowerCase() == "led")
+                    electronicUnitImage = "img/led.png";
+                  if (electronicUnitId.toLowerCase() == "bulb")
+                    electronicUnitImage = "img/bulb.png";
+                  if (electronicUnitId.toLowerCase() == "ac")
+                    electronicUnitImage = "img/ac.png";
+                  if (electronicUnitId.toLowerCase() == "lamp")
+                    electronicUnitImage = "img/lamp.png";
+                  if (state == 0) {
+                    status = "offStatus";
+                    statusText = "OFF";
+                  } else {
+                    status = "onStatus";
+                    statusText = "ON";
+                  }
+                  if (listOfElectronicUnits.length == 4 && j == 3) {
+                    var tempSection = $("<div>");
+                    tempSection.addClass("electronicUnitSection");
+                    tempSection.append(`<div class='card myFont'>
+                          <div class='electronicUnitInformation'>
+                            <h2><i class='fa fa-cube' aria-hidden='true'></i> &nbsp;${electronicUnitId}</h2>
+                            <hr class='separator' />
+                            <p class='${status}' id='${electronicUnitId}-${boardId}-status'>Status : ${statusText}</p>
+                            <button type='button' id='${electronicUnitId}-${boardId}' onclick="toggleUnit('${electronicUnitId}-${boardId}')" class='toggleButton'>Toggle</button>
+                          </div>
+                          <div class='electronicUnitImage'>
+                            <center>
+                              <img src='${electronicUnitImage}' width='90%' />
+                            </center>
+                          </div>
+                        </div>`);
+                    $("#boardSection").append(tempSection);
+                    break;
+                  }
+                  electronicUnitSection.append(`<div class='card myFont'>
+        <div class='electronicUnitInformation'>
+          <h2><i class='fa fa-cube' aria-hidden='true'></i> &nbsp;${electronicUnitId}</h2>
+          <hr class='separator' />
+          <p class='${status}' id='${electronicUnitId}-${boardId}-status'>Status : ${statusText}</p>
+          <button type='button' id='${electronicUnitId}-${boardId}' onclick="toggleUnit('${electronicUnitId}-${boardId}')" class='toggleButton'>Toggle</button>
+        </div>
+        <div class='electronicUnitImage'>
+          <center>
+            <img src='${electronicUnitImage}' width='90%' />
+          </center>
+        </div>
+      </div>`);
+                  $("#boardSection").append(electronicUnitSection);
+                }
+              }
+            },
+            (exception) => {
+              //on reject
+              var boardsStatusSection = $(".boardsStatusSection");
+              boardsStatusSection.html("");
+              boardsStatusSection.append(
+                "<h3><i class='fa fa-frown-o' aria-hidden='true'></i></h3>"
+              );
+              boardsStatusSection.append("<h3>" + exception + "</h3>");
+              boardsStatusSection.removeClass("hidden");
+              setTimeout(() => {
+                boardsStatusSection.addClass("hidden");
+              }, 3000);
+            }
+          );
+          //$(".boardsLoaderSection").addClass("hidden");
+        }, 20000);
+      };
+      $(() => {
+        //code to fetch list of boards starts here...
+        setInterval(() => {
+          populateBoards();
+        }, 6000);
+        //register board initialization starts here....
+        resetForm();
+        $("#electronicUnitsCount").change(() => {
+          for (var i = 1; i <= 4; i++) {
+            $("#unitDiv" + i).addClass("hidden");
+          }
+          var electronicUnitsCount = $("#electronicUnitsCount").val();
+          $("#electronicUnitsCount").attr("disabled", true);
+          for (var i = 1; i <= electronicUnitsCount; i++) {
+            $("#unitDiv" + i).removeClass("hidden");
+          }
+        });
+        $("#registerBoard").click(() => {
+          validateRegisterDetails();
+        });
+        $("#resetRegisterForm").click(() => {
+          resetForm();
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <div class="top-strip"></div>
+    <div class="header">
+      <span>
+        <h1>tm home automation</h1>
+      </span>
+    </div>
+
+    <div class="toolbar myFont">
+      <!--------
+      <button class="myButton myFont" type="button" id="fetchBoards">
+        Fetch Boards
+      </button>
+      &nbsp;
+      ---------->
+      <button
+        class="myButton myFont"
+        type="button"
+        data-toggle="modal"
+        data-target="#basicModal"
+      >
+        <i class="fa fa-sign-in" aria-hidden="true"></i>
+        &nbsp;Register Board
+      </button>
+    </div>
+
+    <div class="boardsLoaderSection myFont hidden">
+      <i class="fa fa-spinner fa-pulse fa-3x fa-fw" id="boardsLoader"></i>
+      &nbsp;&nbsp;
+      <h3>Fetching/Updating Board Details , Please wait ....</h3>
+    </div>
+
+    <div class="boardsStatusSection myFont hidden"></div>
+
+    <div id="boardSection"></div>
+
+    <div
+      class="modal fade"
+      id="basicModal"
+      tabindex="-1"
+      role="dialog"
+      aria-labelledby="basicModal"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button
+              type="button"
+              class="close"
+              data-dismiss="modal"
+              aria-hidden="true"
+            >
+              &times;
+            </button>
+            <h4 class="modal-title" id="myModalLabel">
+              <i class="fa fa-sign-in" aria-hidden="true"></i> Register a Board
+              <i
+                class="fa fa-spinner fa-pulse fa-1x fa-fw"
+                id="registerLoader"
+              ></i>
+            </h4>
+          </div>
+          <div class="modal-body" style="height: 200px">
+            <div class="alert alert-success hidden" id="successBox"></div>
+            <div class="alert alert-danger hidden" id="errorBox"></div>
+            <form>
+              <div class="form-row">
+                <div class="form-group col-md-6">
+                  <label for="boardId">Board ID</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="boardId"
+                    placeholder="Enter board id"
+                    title="Enter board id"
+                  />
+                </div>
+                <div class="form-group col-md-6">
+                  <label for="electronicUnitsCount"
+                    >Number of electronic units</label
+                  >
+                  <select
+                    id="electronicUnitsCount"
+                    class="form-control"
+                    title="Select number of units to add"
+                  >
+                    <option value="Choose" selected disabled>Choose...</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                  </select>
+                </div>
+                <div class="form-group col-md-3 hidden" id="unitDiv1">
+                  <label for="Unit 1">Unit 1</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="unit1"
+                    placeholder="Unit ID"
+                  />
+                </div>
+                <div class="form-group col-md-3 hidden" id="unitDiv2">
+                  <label for="Unit 2">Unit 2</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="unit2"
+                    placeholder="Unit ID"
+                  />
+                </div>
+                <div class="form-group col-md-3 hidden" id="unitDiv3">
+                  <label for="Unit 3">Unit 3</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="unit3"
+                    placeholder="Unit ID"
+                  />
+                </div>
+                <div class="form-group col-md-3 hidden" id="unitDiv4">
+                  <label for="Unit 4">Unit 4</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="unit4"
+                    placeholder="Unit ID"
+                  />
+                </div>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" id="registerBoard" class="btn btn-success">
+              <i class="fa fa-check-circle" aria-hidden="true"></i> Register
+            </button>
+            <button
+              type="button"
+              id="resetRegisterForm"
+              class="btn btn-default"
+            >
+              <i class="fa fa-wrench" aria-hidden="true"></i> Reset
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!----
+    <div class="footer">
+      <h5>&copy; tm home automation &nbsp;&nbsp;&nbsp;</h5>
+    </div>
+    ---->
+  </body>
+</html>
